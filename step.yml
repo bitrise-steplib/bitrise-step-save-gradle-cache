@@ -1,0 +1,48 @@
+title: Save Gradle Cache (Beta)
+summary: Saves Gradle caches. This Step needs to be used in combination with **Restore Gradle Cache**.
+description: |
+  Saves Gradle dependency and build caches. This Step needs to be used in combination with **Restore Gradle Cache**.
+
+  This Step is based on [key-based caching](https://devcenter.bitrise.io/en/builds/caching/key-based-caching.html) and sets up the cache key and path automatically for Gradle. If you'd like to change the cache key (or paths to cache), you might want to use the generic [Save cache](https://github.com/bitrise-steplib/bitrise-step-save-cache) Step instead.
+
+  #### Related steps
+
+  [Restore Gradle cache](https://github.com/bitrise-steplib/bitrise-step-restore-gradle-cache/)
+
+  [Save cache](https://github.com/bitrise-steplib/bitrise-step-save-cache/)
+
+website: https://github.com/bitrise-steplib/bitrise-step-save-gradle-cache
+source_code_url: https://github.com/bitrise-steplib/bitrise-step-save-gradle-cache
+support_url: https://github.com/bitrise-steplib/bitrise-step-save-gradle-cache/issues
+
+project_type_tags:
+- android
+- cordova
+- ionic
+- react-native
+- flutter
+type_tags:
+- utility
+
+run_if: .IsCI
+is_skippable: true
+
+toolkit:
+  go:
+    package_name: github.com/bitrise-steplib/bitrise-step-save-gradle-cache
+
+deps:
+  brew:
+  - name: zstd
+  apt_get:
+  - name: zstd
+
+inputs:
+- verbose: "false"
+  opts:
+    title: Verbose logging
+    summary: Enable logging additional information for troubleshooting
+    is_required: true
+    value_options:
+    - "true"
+    - "false"
