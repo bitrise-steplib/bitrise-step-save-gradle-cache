@@ -17,6 +17,7 @@ support_url: https://github.com/bitrise-steplib/bitrise-step-save-gradle-cache/i
 
 project_type_tags:
 - android
+- ios
 - cordova
 - ionic
 - react-native
