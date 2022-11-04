@@ -62,6 +62,37 @@ func (t *stepTracker) logArchiveExtracted(extractionTime time.Duration, keyCount
 	t.tracker.Enqueue("step_restore_cache_archive_extracted", properties)
 }
 
+func (t *stepTracker) logRestoreResult(isMatch bool, matchedKey string, evaluatedKeys []string) {
+	if len(evaluatedKeys) == 0 {
+		return
+	}
+
+	properties := analytics.Properties{
+		"is_match":             isMatch,
+		"is_first_key_matched": matchedKey == evaluatedKeys[0],
+		"key_count":            len(evaluatedKeys),
+	}
+	t.tracker.Enqueue("step_restore_cache_result", properties)
+}
+
+func (t *stepTracker) logSkipSaveResult(isSaveSkipped bool, reason skipReason) {
+
+	properties := analytics.Properties{
+		"is_save_skipped": isSaveSkipped,
+		"reason":          reason.String(),
+	}
+	t.tracker.Enqueue("step_save_cache_save_skipped", properties)
+}
+
+func (t *stepTracker) logSkipUploadResult(isUploadSkipped bool, reason skipReason) {
+
+	properties := analytics.Properties{
+		"is_upload_skipped": isUploadSkipped,
+		"reason":            reason.String(),
+	}
+	t.tracker.Enqueue("step_save_cache_upload_skipped", properties)
+}
+
 func (t *stepTracker) wait() {
 	t.tracker.Wait()
 }
