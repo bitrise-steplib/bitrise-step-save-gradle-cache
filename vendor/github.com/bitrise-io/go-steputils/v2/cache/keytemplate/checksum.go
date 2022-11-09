@@ -3,12 +3,13 @@ package keytemplate
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/bitrise-io/go-utils/pathutil"
+	"github.com/bitrise-io/go-utils/v2/pathutil"
 	"github.com/bmatcuk/doublestar/v4"
 )
 
@@ -83,11 +84,17 @@ func (m Model) evaluateGlobPatterns(paths []string) []string {
 
 func checksumOfFile(path string) ([]byte, error) {
 	hash := sha256.New()
-	b, err := os.ReadFile(path)
+	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	hash.Write(b)
+	defer file.Close() //nolint:errcheck
+
+	_, err = io.Copy(hash, file)
+	if err != nil {
+		return nil, err
+	}
+
 	return hash.Sum(nil), nil
 }
 

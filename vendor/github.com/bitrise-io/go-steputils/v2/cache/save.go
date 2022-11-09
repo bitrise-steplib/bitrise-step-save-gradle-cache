@@ -25,6 +25,12 @@ type SaveCacheInput struct {
 	Verbose bool
 	Key     string
 	Paths   []string
+	// IsKeyUnique indicates that the cache key is enough for knowing the cache archive is different from
+	// another cache archive.
+	// This can be set to true if the cache key contains a checksum that changes when any of the cached files change.
+	// Example of such key: my-cache-key-{{ checksum "package-lock.json" }}
+	// Example where this is not true: my-cache-key-{{ .OS }}-{{ .Arch }}
+	IsKeyUnique bool
 }
 
 // Saver ...
@@ -73,6 +79,20 @@ func (s *saver) Save(input SaveCacheInput) error {
 	}
 
 	tracker := newStepTracker(input.StepId, s.envRepo, s.logger)
+	defer tracker.wait()
+
+	canSkipSave, reason := s.canSkipSave(input.Key, config.Key, input.IsKeyUnique)
+	tracker.logSkipSaveResult(canSkipSave, reason)
+	s.logger.Println()
+	if canSkipSave {
+		s.logger.Donef("Cache save can be skipped, reason: %s", reason.description())
+		return nil
+	} else {
+		s.logger.Infof("Can't skip saving the cache, reason: %s", reason.description())
+		if reason == reasonNoRestoreThisKey {
+			s.logOtherHits()
+		}
+	}
 
 	s.logger.Println()
 	s.logger.Infof("Creating archive...")
@@ -92,6 +112,20 @@ func (s *saver) Save(input SaveCacheInput) error {
 	s.logger.Printf("Archive size: %s", units.HumanSizeWithPrecision(float64(fileInfo.Size()), 3))
 	s.logger.Debugf("Archive path: %s", archivePath)
 
+	archiveChecksum, err := checksumOfFile(archivePath)
+	if err != nil {
+		s.logger.Warnf(err.Error())
+		// fail silently and continue
+	}
+	canSkipUpload, reason := s.canSkipUpload(config.Key, archiveChecksum)
+	tracker.logSkipUploadResult(canSkipUpload, reason)
+	s.logger.Println()
+	if canSkipUpload {
+		s.logger.Donef("Cache upload can be skipped, reason: %s", reason.description())
+		return nil
+	}
+	s.logger.Infof("Can't skip uploading the cache, reason: %s", reason.description())
+
 	s.logger.Println()
 	s.logger.Infof("Uploading archive...")
 	uploadStartTime := time.Now()
@@ -102,7 +136,6 @@ func (s *saver) Save(input SaveCacheInput) error {
 	uploadTime := time.Since(uploadStartTime).Round(time.Second)
 	s.logger.Donef("Archive uploaded in %s", uploadTime)
 	tracker.logArchiveUploaded(uploadTime, fileInfo, len(config.Paths))
-	tracker.wait()
 
 	return nil
 }
@@ -129,9 +162,9 @@ func (s *saver) createConfig(input SaveCacheInput) (saveCacheConfig, error) {
 	if apiBaseURL == "" {
 		return saveCacheConfig{}, fmt.Errorf("the secret 'BITRISEIO_ABCS_API_URL' is not defined")
 	}
-	apiAccessToken := s.envRepo.Get("BITRISEIO_ABCS_ACCESS_TOKEN")
+	apiAccessToken := s.envRepo.Get("BITRISEIO_BITRISE_SERVICES_ACCESS_TOKEN")
 	if apiAccessToken == "" {
-		return saveCacheConfig{}, fmt.Errorf("the secret 'BITRISEIO_ABCS_ACCESS_TOKEN' is not defined")
+		return saveCacheConfig{}, fmt.Errorf("the secret 'BITRISEIO_BITRISE_SERVICES_ACCESS_TOKEN' is not defined")
 	}
 
 	return saveCacheConfig{
