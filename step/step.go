@@ -34,6 +34,9 @@ var paths = []string{
 
 	// Configuration cache in project-level folder
 	".gradle/configuration-cache",
+	
+	// JDKs downloaded by the toolchain support
+	".gradle/jdks",
 }
 
 type Input struct {
