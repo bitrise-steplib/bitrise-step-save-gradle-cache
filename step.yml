@@ -1,4 +1,4 @@
-title: Save Gradle Cache (Beta)
+title: Save Gradle Cache
 summary: Saves Gradle caches. This Step needs to be used in combination with **Restore Gradle Cache**.
 description: |
   Saves Gradle dependency and build caches. This Step needs to be used in combination with **Restore Gradle Cache**.

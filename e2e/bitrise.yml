@@ -35,8 +35,8 @@ workflows:
         inputs:
         - content: |-
             set -ex
-            rm -rf ./_tmp/.gradle
-            rm -rf ~/.gradle
+            sudo rm -rf ./_tmp/.gradle
+            sudo rm -rf ~/.gradle
     - restore-cache:
         run_if: "true"
         is_skippable: false
@@ -79,8 +79,8 @@ workflows:
         inputs:
         - content: |-
             set -ex
-            rm -rf ~/.gradle
-            rm -rf ./_tmp/.gradle
+            sudo rm -rf ~/.gradle
+            sudo rm -rf ./_tmp/.gradle
     - path::./:
         title: Execute step
         run_if: "true"

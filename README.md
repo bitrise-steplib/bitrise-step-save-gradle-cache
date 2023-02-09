@@ -1,4 +1,4 @@
-# Save Gradle Cache (Beta)
+# Save Gradle Cache
 
 [![Step changelog](https://shields.io/github/v/release/bitrise-steplib/bitrise-step-save-gradle-cache?include_prereleases&label=changelog&color=blueviolet)](https://github.com/bitrise-steplib/bitrise-step-save-gradle-cache/releases)
 
@@ -24,10 +24,6 @@ This Step is based on [key-based caching](https://devcenter.bitrise.io/en/builds
 Add this step directly to your workflow in the [Bitrise Workflow Editor](https://devcenter.bitrise.io/steps-and-workflows/steps-and-workflows-index/).
 
 You can also run this step directly with [Bitrise CLI](https://github.com/bitrise-io/bitrise).
-
-⚠️ **Beta status**: While this Step is in beta, everyone can use it without restrictions, quotas or costs.
-
-### Examples
 
 Check out [Workflow Recipes](https://github.com/bitrise-io/workflow-recipes#-key-based-caching-beta) for other platform-specific examples!
 
