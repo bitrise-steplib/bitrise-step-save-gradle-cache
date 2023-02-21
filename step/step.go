@@ -26,8 +26,20 @@ const (
 
 // Cached paths
 var paths = []string{
-	// Local Gradle cache folder (contains build cache too when `org.gradle.caching = true`)
-	"~/.gradle/caches",
+
+	// Dependency JARs
+	"~/.gradle/caches/jars-*",
+
+	// Dependency AARs
+	"~/.gradle/caches/modules-*/files-*",
+
+	// Generated JARs for plugins and build scripts
+	// The `**` segment matches the version-specific folder, such as `7.6`.
+	"~/.gradle/caches/**/generated-gradle-jars/*.jar",
+
+	// Kotlin build script cache
+	// The `**` segment matches the version-specific folder, such as `7.6`.
+	"~/.gradle/caches/**/kotlin-dsl",
 
 	// Cache of downloaded Gradle binary
 	"~/.gradle/wrapper",
