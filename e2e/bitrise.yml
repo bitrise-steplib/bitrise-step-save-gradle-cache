@@ -35,7 +35,9 @@ workflows:
         inputs:
         - content: |-
             set -ex
+            ./gradlew -stop
             sudo rm -rf ./_tmp/.gradle
+            ls -la ~/.gradle
             sudo rm -rf ~/.gradle
     - restore-cache:
         run_if: "true"
@@ -75,10 +77,11 @@ workflows:
         - path: ./_tmp
         - is_create_path: true
     - script:
-        title: Clean DerivedData
+        title: Clean Gradle caches
         inputs:
         - content: |-
             set -ex
+            ./gradlew -stop
             sudo rm -rf ~/.gradle
             sudo rm -rf ./_tmp/.gradle
     - path::./:
