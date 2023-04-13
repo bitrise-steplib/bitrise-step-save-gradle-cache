@@ -80,7 +80,7 @@ workflows:
         inputs:
         - content: |-
             set -ex
-            ./gralew -stop
+            ./gradlew -stop
             sudo rm -rf ~/.gradle
             sudo rm -rf ./_tmp/.gradle
     - path::./:
