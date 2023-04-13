@@ -37,6 +37,7 @@ workflows:
             set -ex
             ./gradlew -stop
             sudo rm -rf ./_tmp/.gradle
+            ls -la ~/.gradle
             sudo rm -rf ~/.gradle
     - restore-cache:
         run_if: "true"
