@@ -32,6 +32,7 @@ var paths = []string{
 
 	// Dependency AARs
 	"~/.gradle/caches/modules-*/files-*",
+	"~/.gradle/caches/modules-*/metadata-*",
 
 	// Generated JARs for plugins and build scripts
 	// The `**` segment matches the version-specific folder, such as `7.6`.
