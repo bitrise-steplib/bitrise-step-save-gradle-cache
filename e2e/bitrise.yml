@@ -36,6 +36,7 @@ workflows:
         - content: |-
             set -ex
             ./gradlew -stop
+            sudo chown -R $USER:$GROUP ~/.gradle
             sudo rm -rf ./_tmp/.gradle
             ls -la ~/.gradle
             sudo rm -rf ~/.gradle
@@ -82,6 +83,7 @@ workflows:
         - content: |-
             set -ex
             ./gradlew -stop
+            sudo chown -R $USER:$GROUP ~/.gradle
             sudo rm -rf ~/.gradle
             sudo rm -rf ./_tmp/.gradle
     - path::./:
