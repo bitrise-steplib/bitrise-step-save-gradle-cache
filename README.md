@@ -7,7 +7,7 @@ Saves Gradle caches. This Step needs to be used in combination with **Restore Gr
 <details>
 <summary>Description</summary>
 
-Saves Gradle dependency and build caches. This Step needs to be used in combination with **Restore Gradle Cache**.
+Saves Gradle dependency caches. This Step needs to be used in combination with **Restore Gradle Cache**.
 
 This Step is based on [key-based caching](https://devcenter.bitrise.io/en/builds/caching/key-based-caching.html) and sets up the cache key and path automatically for Gradle. If you'd like to change the cache key (or paths to cache), you might want to use the generic [Save cache](https://github.com/bitrise-steplib/bitrise-step-save-cache) Step instead.
 
@@ -24,6 +24,8 @@ This Step is based on [key-based caching](https://devcenter.bitrise.io/en/builds
 Add this step directly to your workflow in the [Bitrise Workflow Editor](https://devcenter.bitrise.io/steps-and-workflows/steps-and-workflows-index/).
 
 You can also run this step directly with [Bitrise CLI](https://github.com/bitrise-io/bitrise).
+
+### Examples
 
 Check out [Workflow Recipes](https://github.com/bitrise-io/workflow-recipes#-key-based-caching-beta) for other platform-specific examples!
 
