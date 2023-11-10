@@ -50,6 +50,10 @@ var paths = []string{
 
 	// JDKs downloaded by the toolchain support
 	"~/.gradle/jdks",
+
+	// Konan native compiler and dependencies
+	"~/.konan/kotlin-*"
+	"~/.konan/dependencies"
 }
 
 type Input struct {
