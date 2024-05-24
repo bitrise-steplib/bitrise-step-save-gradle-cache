@@ -53,7 +53,8 @@ var paths = []string{
 }
 
 type Input struct {
-	Verbose bool `env:"verbose,required"`
+	Verbose          bool `env:"verbose,required"`
+	CompressionLevel int  `env:"compression_level,range[1..19]"`
 }
 
 type SaveCacheStep struct {
@@ -99,10 +100,11 @@ func (step SaveCacheStep) Run() error {
 
 	saver := cache.NewSaver(step.envRepo, step.logger, step.pathProvider, step.pathModifier, step.pathChecker)
 	return saver.Save(cache.SaveCacheInput{
-		StepId:      stepId,
-		Verbose:     input.Verbose,
-		Key:         key,
-		Paths:       paths,
-		IsKeyUnique: true,
+		StepId:           stepId,
+		Verbose:          input.Verbose,
+		Key:              key,
+		Paths:            paths,
+		IsKeyUnique:      true,
+		CompressionLevel: input.CompressionLevel,
 	})
 }
