@@ -98,7 +98,7 @@ func (step SaveCacheStep) Run() error {
 
 	step.logger.EnableDebugLog(input.Verbose)
 
-	saver := cache.NewSaver(step.envRepo, step.logger, step.pathProvider, step.pathModifier, step.pathChecker)
+	saver := cache.NewSaver(step.envRepo, step.logger, step.pathProvider, step.pathModifier, step.pathChecker, nil)
 	return saver.Save(cache.SaveCacheInput{
 		StepId:           stepId,
 		Verbose:          input.Verbose,
