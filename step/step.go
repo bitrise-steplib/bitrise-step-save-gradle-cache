@@ -21,7 +21,7 @@ const (
 	// - `**/gradle-wrapper.properties`: contains exact Gradle version
 	// - `**/gradle.properties`: contains Gradle config values
 	// - `**/gradle/libs.versions.toml`: version catalog file, contains dependencies and their versions
-	key = `{{ .OS }}-{{ .Arch }}-gradle-cache-{{ checksum "**/*.gradle*" "**/gradle-wrapper.properties" "**/gradle.properties" "**/gradle/libs.versions.toml" }}`
+	key = `{{ .OS }}-{{ .Arch }}-gradle-cache-{{ checksum "**/*.gradle*" "**/gradle-wrapper.properties" "**/gradle.properties" "**/gradle/libs.versions.toml" "~/.gradle/init.d/*" }}`
 )
 
 // Cached paths
