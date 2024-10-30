@@ -42,6 +42,10 @@ var paths = []string{
 	// The `**` segment matches the version-specific folder, such as `7.6`.
 	"~/.gradle/caches/**/kotlin-dsl",
 
+	// Transforms
+	// The `**` segment matches the version-specific folder, such as `7.6`.
+	"~/.gradle/caches/**/transforms",
+
 	// Cache of downloaded Gradle binary
 	"~/.gradle/wrapper",
 
