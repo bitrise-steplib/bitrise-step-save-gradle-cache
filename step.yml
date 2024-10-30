@@ -58,5 +58,5 @@ inputs:
     summary: Save transformed classes and resources under `$HOME/.gradle/caches/**/transforms`
     is_required: true
     value_options:
-      - "true"
-      - "false"
+    - "true"
+    - "false"
