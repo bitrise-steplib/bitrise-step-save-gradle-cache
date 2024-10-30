@@ -52,3 +52,11 @@ inputs:
     title: Compression level
     summary: Zstd compression level to control speed / archive size. Set to 1 for fastest option. Valid values are between 1 and 19. Defaults to 3.
     is_required: false
+- save_transforms: "false"
+  opts:
+    title: Save transforms
+    summary: Save transformed classes and resources under `$HOME/.gradle/caches/**/transforms`
+    is_required: true
+    value_options:
+      - "true"
+      - "false"
