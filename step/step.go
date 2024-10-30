@@ -45,8 +45,7 @@ var paths = []string{
 	// Cache of downloaded Gradle binary
 	"~/.gradle/wrapper",
 
-	// Configuration cache in project-level folder
-	".gradle/configuration-cache",
+	// Configuration cache is saved by separate step: save-gradle-configuration-cache
 
 	// JDKs downloaded by the toolchain support
 	"~/.gradle/jdks",
