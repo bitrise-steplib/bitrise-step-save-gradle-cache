@@ -45,8 +45,7 @@ var paths = []string{
 	// Cache of downloaded Gradle binary
 	"~/.gradle/wrapper",
 
-	// Configuration cache in project-level folder
-	".gradle/configuration-cache",
+	// Configuration cache is saved by separate step: save-gradle-configuration-cache
 
 	// JDKs downloaded by the toolchain support
 	"~/.gradle/jdks",
@@ -55,6 +54,7 @@ var paths = []string{
 type Input struct {
 	Verbose          bool `env:"verbose,required"`
 	CompressionLevel int  `env:"compression_level,range[1..19]"`
+	SaveTransforms   bool `env:"save_transforms"`
 }
 
 type SaveCacheStep struct {
@@ -90,6 +90,13 @@ func (step SaveCacheStep) Run() error {
 		return fmt.Errorf("failed to parse inputs: %w", err)
 	}
 	stepconf.Print(input)
+
+	if input.SaveTransforms {
+		// Save artifact transforms
+		// The `**` segment matches the version-specific folder, such as `7.6`.
+		paths = append(paths, "~/.gradle/caches/**/transforms")
+	}
+
 	step.logger.Println()
 	step.logger.Printf("Cache key: %s", key)
 	step.logger.Printf("Cache paths:")

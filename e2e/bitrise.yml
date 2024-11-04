@@ -30,6 +30,7 @@ workflows:
         is_skippable: false
         inputs:
         - verbose: "true"
+        - save_transforms: "true"
     - script:
         title: Delete local Gradle caches
         inputs:
