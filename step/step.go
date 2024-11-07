@@ -95,6 +95,7 @@ func (step SaveCacheStep) Run() error {
 		// Save artifact transforms
 		// The `**` segment matches the version-specific folder, such as `7.6`.
 		paths = append(paths, "~/.gradle/caches/**/transforms")
+		paths = append(paths, "~/.gradle/caches/transforms-*")
 	}
 
 	step.logger.Println()
