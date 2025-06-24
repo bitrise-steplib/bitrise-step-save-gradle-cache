@@ -27,6 +27,9 @@ const (
 // Cached paths
 var paths = []string{
 
+	// Plugins like Bitrise gradle plugins
+	"~/.gradle/caches/plugins",
+
 	// Dependency JARs
 	"~/.gradle/caches/jars-*",
 
