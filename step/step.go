@@ -49,6 +49,9 @@ var paths = []string{
 
 	// JDKs downloaded by the toolchain support
 	"~/.gradle/jdks",
+
+	// Build cache
+	"~/.gradle/caches/build-cache-*",
 }
 
 type Input struct {
