@@ -33,7 +33,10 @@ workflows:
             sudo chown -R $USER:$GROUP ~/.gradle
             sudo rm -rf ./_tmp/.gradle
             ls -la ~/.gradle
-            sudo rm -rf ~/.gradle
+            # Skip ~/.gradle/init.d — populated by the Bitrise stack image and
+            # held open on the noble-24.04 docker stack, which causes
+            # `rm -rf ~/.gradle` to fail with "Device or resource busy".
+            sudo find ~/.gradle -mindepth 1 -maxdepth 1 ! -name init.d -exec rm -rf {} +
     - restore-cache:
         run_if: "true"
         is_skippable: false
@@ -76,7 +79,10 @@ workflows:
             set -ex
             ./gradlew -stop
             sudo chown -R $USER:$GROUP ~/.gradle
-            sudo rm -rf ~/.gradle
+            # Skip ~/.gradle/init.d — populated by the Bitrise stack image and
+            # held open on the noble-24.04 docker stack, which causes
+            # `rm -rf ~/.gradle` to fail with "Device or resource busy".
+            sudo find ~/.gradle -mindepth 1 -maxdepth 1 ! -name init.d -exec rm -rf {} +
             sudo rm -rf ./_tmp/.gradle
     - path::./:
         title: Execute step
