@@ -49,6 +49,12 @@ var paths = []string{
 
 	// JDKs downloaded by the toolchain support
 	"~/.gradle/jdks",
+
+	// Kotlin Native compiler distributions for Kotlin Multiplatform projects
+	"~/.konan/kotlin-*",
+
+	// Kotlin Native dependencies (LLVM toolchain, sysroots) for Kotlin Multiplatform projects
+	"~/.konan/dependencies",
 }
 
 type Input struct {
