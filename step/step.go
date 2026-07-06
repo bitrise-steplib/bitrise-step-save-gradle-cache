@@ -24,37 +24,63 @@ const (
 	key = `{{ .OS }}-{{ .Arch }}-gradle-cache-{{ checksum "**/*.gradle*" "**/gradle-wrapper.properties" "**/gradle.properties" "**/libs.versions.toml" }}`
 )
 
-// Cached paths
-var paths = []string{
+func gradleUserHome(envRepo env.Repository) string {
+	if v := strings.TrimSpace(envRepo.Get("GRADLE_USER_HOME")); v != "" {
+		return v
+	}
 
-	// Dependency JARs
-	"~/.gradle/caches/jars-*",
+	return "~/.gradle"
+}
 
-	// Dependency AARs
-	"~/.gradle/caches/modules-*/files-*",
-	"~/.gradle/caches/modules-*/metadata-*",
+func konanDataDir(envRepo env.Repository) string {
+	if v := strings.TrimSpace(envRepo.Get("KONAN_DATA_DIR")); v != "" {
+		return v
+	}
 
-	// Generated JARs for plugins and build scripts
-	// The `**` segment matches the version-specific folder, such as `7.6`.
-	"~/.gradle/caches/**/generated-gradle-jars/*.jar",
+	return "~/.konan"
+}
 
-	// Kotlin build script cache
-	// The `**` segment matches the version-specific folder, such as `7.6`.
-	"~/.gradle/caches/**/kotlin-dsl",
+func cachePaths(gradleHome, konanDir string, saveTransforms bool) []string {
+	paths := []string{
 
-	// Cache of downloaded Gradle binary
-	"~/.gradle/wrapper",
+		// Dependency JARs
+		gradleHome + "/caches/jars-*",
 
-	// Configuration cache is saved by separate step: save-gradle-configuration-cache
+		// Dependency AARs
+		gradleHome + "/caches/modules-*/files-*",
+		gradleHome + "/caches/modules-*/metadata-*",
 
-	// JDKs downloaded by the toolchain support
-	"~/.gradle/jdks",
+		// Generated JARs for plugins and build scripts
+		// The `**` segment matches the version-specific folder, such as `7.6`.
+		gradleHome + "/caches/**/generated-gradle-jars/*.jar",
 
-	// Kotlin Native compiler distributions for Kotlin Multiplatform projects
-	"~/.konan/kotlin-*",
+		// Kotlin build script cache
+		// The `**` segment matches the version-specific folder, such as `7.6`.
+		gradleHome + "/caches/**/kotlin-dsl",
 
-	// Kotlin Native dependencies (LLVM toolchain, sysroots) for Kotlin Multiplatform projects
-	"~/.konan/dependencies",
+		// Cache of downloaded Gradle binary
+		gradleHome + "/wrapper",
+
+		// Configuration cache is saved by separate step: save-gradle-configuration-cache
+
+		// JDKs downloaded by the toolchain support
+		gradleHome + "/jdks",
+
+		// Kotlin/Native, relocated by KONAN_DATA_DIR (not GRADLE_USER_HOME).
+		konanDir + "/kotlin-*",
+		konanDir + "/dependencies",
+	}
+
+	if saveTransforms {
+		// Save artifact transforms
+		// The `**` segment matches the version-specific folder, such as `7.6`.
+		paths = append(paths,
+			gradleHome+"/caches/**/transforms",
+			gradleHome+"/caches/transforms-*",
+		)
+	}
+
+	return paths
 }
 
 type Input struct {
@@ -97,12 +123,7 @@ func (step SaveCacheStep) Run() error {
 	}
 	stepconf.Print(input)
 
-	if input.SaveTransforms {
-		// Save artifact transforms
-		// The `**` segment matches the version-specific folder, such as `7.6`.
-		paths = append(paths, "~/.gradle/caches/**/transforms")
-		paths = append(paths, "~/.gradle/caches/transforms-*")
-	}
+	paths := cachePaths(gradleUserHome(step.envRepo), konanDataDir(step.envRepo), input.SaveTransforms)
 
 	step.logger.Println()
 	step.logger.Printf("Cache key: %s", key)
