@@ -62,6 +62,69 @@ workflows:
         - module: app
         - variant: debug
 
+  test_gradle_custom_gradle_user_home:
+    description: |
+      Same as test_gradle but with a non-default GRADLE_USER_HOME. Gradle writes its
+      caches under $GRADLE_USER_HOME, so the step must save/restore from there rather
+      than ~/.gradle.
+    envs:
+    - TEST_APP_URL: https://github.com/bitrise-io/Bitrise-Android-Sample
+    - BRANCH: main
+    - GRADLE_USER_HOME: $HOME/custom-gradle-home
+    before_run:
+    - _setup
+    steps:
+    - change-workdir:
+        title: Switch working dir to _tmp
+        inputs:
+        - path: ./_tmp
+    - android-build:
+        inputs:
+        - module: app
+        - variant: debug
+    - path::./:
+        title: Execute step
+        run_if: "true"
+        is_skippable: false
+        inputs:
+        - verbose: "true"
+        - save_transforms: "true"
+    - script:
+        title: Delete custom GRADLE_USER_HOME caches
+        inputs:
+        - content: |-
+            set -ex
+            ./gradlew -stop
+            sudo chown -R $USER:$GROUP "$GRADLE_USER_HOME"
+            sudo rm -rf ./_tmp/.gradle
+            ls -la "$GRADLE_USER_HOME"
+            sudo find "$GRADLE_USER_HOME" -mindepth 1 -maxdepth 1 ! -name init.d -exec rm -rf {} +
+    - restore-cache:
+        run_if: "true"
+        is_skippable: false
+        inputs:
+        - key: "{{ .OS }}-{{ .Arch }}-gradle-cache-"
+        - verbose: "true"
+    - script:
+        title: Verify restored folder under GRADLE_USER_HOME
+        inputs:
+        - content: |-
+            set -ex
+            # Caches must be restored under the custom GRADLE_USER_HOME, not ~/.gradle.
+            if [ ! -d "$GRADLE_USER_HOME/caches" ]; then
+              echo "$GRADLE_USER_HOME/caches directory doesn't exist"
+              exit 1
+            fi
+            if [ ! -d "$GRADLE_USER_HOME/wrapper" ]; then
+              echo "$GRADLE_USER_HOME/wrapper directory doesn't exist"
+              exit 1
+            fi
+    - android-build:
+        title: Build app again
+        inputs:
+        - module: app
+        - variant: debug
+
   test_empty:
     description: |
       Tests the case when there is nothing to compress based on the cache paths. The step returns early in this case
