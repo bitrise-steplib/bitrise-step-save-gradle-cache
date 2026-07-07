@@ -20,8 +20,6 @@ project_type_tags:
 - cordova
 - flutter
 - ionic
-- java
-- kotlin-multiplatform
 - react-native
 type_tags:
 - utility
