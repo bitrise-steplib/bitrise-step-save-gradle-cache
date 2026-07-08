@@ -17,11 +17,11 @@ const (
 	// Cache key template
 	// OS + Arch: to guarantee that stack-specific content (absolute paths, binaries) are stored separately
 	// checksum values:
-	// - `**/*.gradle*`: Gradle build files in any submodule, including ones written in Kotlin (*.gradle.kts)
+	// - `**/*.gradle`, `**/*.gradle.kts`: Gradle build files (Groovy + Kotlin DSL); extensions anchored so generated `*.gradle.plugin` publish markers can't make the key non-deterministic
 	// - `**/gradle-wrapper.properties`: contains exact Gradle version
 	// - `**/gradle.properties`: contains Gradle config values
 	// - `**/libs.versions.toml`: version catalog file, contains dependencies and their versions
-	key = `{{ .OS }}-{{ .Arch }}-gradle-cache-{{ checksum "**/*.gradle*" "**/gradle-wrapper.properties" "**/gradle.properties" "**/libs.versions.toml" }}`
+	key = `{{ .OS }}-{{ .Arch }}-gradle-cache-{{ checksum "**/*.gradle" "**/*.gradle.kts" "**/gradle-wrapper.properties" "**/gradle.properties" "**/libs.versions.toml" }}`
 )
 
 func gradleUserHome(envRepo env.Repository) string {
