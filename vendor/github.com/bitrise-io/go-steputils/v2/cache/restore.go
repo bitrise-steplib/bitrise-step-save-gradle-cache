@@ -26,6 +26,7 @@ type RestoreCacheInput struct {
 	StepId         string
 	Verbose        bool
 	Keys           []string
+	Timeout        time.Duration
 	NumFullRetries int
 }
 
@@ -83,16 +84,28 @@ func (r *restorer) Restore(input RestoreCacheInput) error {
 	r.logger.Println()
 	r.logger.Infof("Downloading archive...")
 	downloadStartTime := time.Now()
-	result, err := r.download(context.Background(), config)
+
+	ctx := context.Background()
+	cancel := context.CancelFunc(nil)
+	if input.Timeout != 0 {
+		ctx, cancel = context.WithTimeout(ctx, input.Timeout)
+		defer cancel()
+	}
+
+	result, err := r.download(ctx, config)
 	if err != nil {
 		if errors.Is(err, network.ErrCacheNotFound) {
 			r.logger.Donef("No cache entry found for the provided key")
 			tracker.logRestoreResult(false, "", config.Keys)
-			exporter := export.NewExporter(r.cmdFactory)
+			exporter := export.NewDefaultExporter(r.cmdFactory)
 			return exporter.ExportOutput(cacheHitEnvVar, "false")
 		}
 		return fmt.Errorf("download failed: %w", err)
 	}
+
+	// On many stacks the temp dir is a tmpfs, so a leftover archive holds RAM for the whole build.
+	defer r.removeDownloadedArchive(result.filePath)
+
 	if result.matchedKey == config.Keys[0] {
 		r.logger.Printf("Exact hit for first key")
 	} else {
@@ -216,12 +229,22 @@ func (r *restorer) download(ctx context.Context, config restoreCacheConfig) (dow
 	return downloadResult{filePath: downloadPath, matchedKey: matchedKey}, nil
 }
 
+func (r *restorer) removeDownloadedArchive(archivePath string) {
+	if archivePath == "" {
+		return
+	}
+	dir := filepath.Dir(archivePath)
+	if err := os.RemoveAll(dir); err != nil {
+		r.logger.Warnf("Failed to clean up temporary cache archive %s: %s", dir, err)
+	}
+}
+
 func (r *restorer) exposeCacheHit(result downloadResult, evaluatedKeys []string) error {
 	if result.filePath == "" || result.matchedKey == "" || len(evaluatedKeys) == 0 {
 		return nil
 	}
 
-	exporter := export.NewExporter(r.cmdFactory)
+	exporter := export.NewDefaultExporter(r.cmdFactory)
 	var cacheHitValue string
 	if result.matchedKey == evaluatedKeys[0] {
 		cacheHitValue = "exact"
