@@ -2,34 +2,81 @@ package network
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"os"
 	"strings"
 
 	"github.com/bitrise-io/go-utils/v2/log"
+	"github.com/bitrise-io/go-utils/v2/retryhttp"
 	"github.com/hashicorp/go-retryablehttp"
 )
 
 const maxKeyLength = 512
 const maxKeyCount = 8
 
+// datacenterHeader tells the cache service which DC the build VM runs in, for DC-aware placement.
+const datacenterHeader = "X-Bitrise-Datacenter"
+const datacenterEnvKey = "BITRISE_DEN_VM_DATACENTER"
+
 type prepareUploadRequest struct {
 	CacheKey           string `json:"cache_key"`
 	ArchiveFileName    string `json:"archive_filename"`
 	ArchiveContentType string `json:"archive_content_type"`
 	ArchiveSizeInBytes int64  `json:"archive_size_in_bytes"`
+	ChunkSizeMB        int    `json:"chunk_size_mb,omitempty"` // optional chunk size in MB, default 32MB if not set
 }
 
-type prepareUploadResponse struct {
-	ID            string            `json:"id"`
-	UploadMethod  string            `json:"method"`
-	UploadURL     string            `json:"url"`
-	UploadHeaders map[string]string `json:"headers"`
+type prepareMultipartUploadResponse struct {
+	ID                 string                      `json:"id"`
+	ChunkSizeBytes     int64                       `json:"chunk_size_bytes"`
+	ChunkCount         int64                       `json:"chunk_count"`
+	LastChunkSizeBytes int64                       `json:"last_chunk_size_bytes"`
+	URLs               []prepareMultipartUploadURL `json:"urls"`
+}
+
+// uploadSkipHeader tells the server this client understands the upload skip response.
+const uploadSkipHeader = "X-Bitrise-Cache-Upload-Skip"
+
+// ErrUploadSkipped matches (via errors.Is) an UploadSkippedError anywhere in an error chain. It is only
+// returned when UploadParams.AllowServerSkip is set; callers opting in must treat it as success.
+var ErrUploadSkipped = errors.New("upload skipped by the cache server")
+
+// UploadSkippedError is returned by Upload when the server reports the archive doesn't need uploading,
+// because another build is uploading or just uploaded the identical key. Nothing was uploaded or acknowledged.
+type UploadSkippedError struct {
+	Reason     string
+	ExistingID string
+}
+
+// Error implements error.
+func (e UploadSkippedError) Error() string {
+	return fmt.Sprintf("%s: %s (existing upload %s)", ErrUploadSkipped, e.Reason, e.ExistingID)
+}
+
+// Is makes errors.Is(err, ErrUploadSkipped) match.
+func (e UploadSkippedError) Is(target error) bool {
+	return target == ErrUploadSkipped
+}
+
+type uploadSkippedResponse struct {
+	Skipped    bool   `json:"skipped"`
+	Reason     string `json:"reason"`
+	ExistingID string `json:"existing_id"`
+}
+
+type prepareMultipartUploadURL struct {
+	Method  string            `json:"method"`
+	URL     string            `json:"url"`
+	Headers map[string]string `json:"headers"`
+}
+
+type completeMultipartUploadRequest struct {
+	Successful bool     `json:"successful"`
+	Etags      []string `json:"etags,omitempty"`
 }
 
 type acknowledgeResponse struct {
@@ -58,24 +105,35 @@ func newAPIClient(client *retryablehttp.Client, baseURL string, accessToken stri
 	}
 }
 
-func (c apiClient) prepareUpload(requestBody prepareUploadRequest) (prepareUploadResponse, error) {
-	url := fmt.Sprintf("%s/upload", c.baseURL)
+func (c apiClient) setCommonHeaders(req *retryablehttp.Request) {
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.accessToken))
+	// Read per request, like BITRISE_BUILD_SLUG.
+	if dc := strings.TrimSpace(os.Getenv(datacenterEnvKey)); dc != "" {
+		req.Header.Set(datacenterHeader, dc)
+	}
+}
+
+func (c apiClient) prepareMultipartUpload(requestBody prepareUploadRequest, allowServerSkip bool) (prepareMultipartUploadResponse, error) {
+	url := fmt.Sprintf("%s/multipart-upload", c.baseURL)
 
 	body, err := json.Marshal(requestBody)
 	if err != nil {
-		return prepareUploadResponse{}, err
+		return prepareMultipartUploadResponse{}, err
 	}
 
 	req, err := retryablehttp.NewRequest(http.MethodPost, url, body)
 	if err != nil {
-		return prepareUploadResponse{}, err
+		return prepareMultipartUploadResponse{}, err
 	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.accessToken))
+	c.setCommonHeaders(req)
 	req.Header.Set("Content-type", "application/json")
+	if allowServerSkip {
+		req.Header.Set(uploadSkipHeader, "1")
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return prepareUploadResponse{}, err
+		return prepareMultipartUploadResponse{}, err
 	}
 	defer func(body io.ReadCloser) {
 		err := body.Close()
@@ -84,79 +142,60 @@ func (c apiClient) prepareUpload(requestBody prepareUploadRequest) (prepareUploa
 		}
 	}(resp.Body)
 
+	if resp.StatusCode == http.StatusOK {
+		return prepareMultipartUploadResponse{}, decodeUploadSkipped(resp)
+	}
 	if resp.StatusCode != http.StatusCreated {
-		return prepareUploadResponse{}, unwrapError(resp)
+		return prepareMultipartUploadResponse{}, unwrapError(resp)
 	}
 
-	var response prepareUploadResponse
+	var response prepareMultipartUploadResponse
 	err = json.NewDecoder(resp.Body).Decode(&response)
 	if err != nil {
-		return prepareUploadResponse{}, err
+		return prepareMultipartUploadResponse{}, err
 	}
 
 	return response, nil
 }
 
-func (c apiClient) uploadArchive(archivePath, uploadMethod, uploadURL string, headers map[string]string) error {
-	file, err := os.Open(archivePath)
+func (c apiClient) completeMultipartUpload(uploadID string, etags []string) (acknowledgeResponse, error) {
+	resp, err := c.acknowledgeMultipartUpload(uploadID, true, etags)
 	if err != nil {
-		return err
+		return acknowledgeResponse{}, fmt.Errorf("complete multipart upload: %w", err)
 	}
+	return resp, nil
+}
 
-	req, err := retryablehttp.NewRequest(uploadMethod, uploadURL, file)
+func (c apiClient) abortMultipartUpload(uploadID string) error {
+	_, err := c.acknowledgeMultipartUpload(uploadID, false, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("abort multipart upload: %w", err)
 	}
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
-
-	// Add Content-Length header manually because retryablehttp doesn't do it automatically
-	fileInfo, err := os.Stat(archivePath)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
-	req.ContentLength = fileInfo.Size()
-
-	dump, err := httputil.DumpRequest(req.Request, false)
-	if err != nil {
-		c.logger.Warnf("error while dumping request: %s", err)
-	}
-	c.logger.Debugf("Request dump: %s", string(dump))
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer func(body io.ReadCloser) {
-		err := body.Close()
-		if err != nil {
-			c.logger.Printf(err.Error())
-		}
-	}(resp.Body)
-
-	dump, err = httputil.DumpResponse(resp, true)
-	if err != nil {
-		c.logger.Warnf("error while dumping response: %s", err)
-	}
-	c.logger.Debugf("Response dump: %s", string(dump))
-
-	if resp.StatusCode != http.StatusOK {
-		return unwrapError(resp)
-	}
-
 	return nil
 }
 
-func (c apiClient) acknowledgeUpload(uploadID string) (acknowledgeResponse, error) {
-	url := fmt.Sprintf("%s/upload/%s/acknowledge", c.baseURL, uploadID)
+func (c apiClient) acknowledgeMultipartUpload(uploadID string, successful bool, etags []string) (acknowledgeResponse, error) {
+	url := fmt.Sprintf("%s/multipart-upload/%s/acknowledge", c.baseURL, uploadID)
 
-	req, err := retryablehttp.NewRequest(http.MethodPatch, url, nil)
+	requestBody := completeMultipartUploadRequest{
+		Successful: successful,
+		Etags:      etags,
+	}
+
+	body, err := json.Marshal(requestBody)
 	if err != nil {
 		return acknowledgeResponse{}, err
 	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.accessToken))
+
+	req, err := retryablehttp.NewRequest(http.MethodPatch, url, body)
+	if err != nil {
+		return acknowledgeResponse{}, err
+	}
+	c.setCommonHeaders(req)
+	req.Header.Set("Content-type", "application/json")
+	if buildSlug := os.Getenv("BITRISE_BUILD_SLUG"); buildSlug != "" {
+		req.Header.Set("X-Build-Slug", buildSlug)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -192,7 +231,7 @@ func (c apiClient) restore(cacheKeys []string) (restoreResponse, error) {
 	if err != nil {
 		return restoreResponse{}, err
 	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.accessToken))
+	c.setCommonHeaders(req)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -221,8 +260,47 @@ func (c apiClient) restore(cacheKeys []string) (restoreResponse, error) {
 	return response, nil
 }
 
+// newUploadHTTPClient is the retrying client for uploads; see withoutUploadSkipHeaderOnRetry.
+func newUploadHTTPClient(logger log.Logger) *retryablehttp.Client {
+	client := retryhttp.NewClient(logger)
+	client.PrepareRetry = withoutUploadSkipHeaderOnRetry(client.PrepareRetry)
+
+	return client
+}
+
+// withoutUploadSkipHeaderOnRetry drops the skip header from retries: the server may have created the
+// upload before the first response was lost, and a retry would then be told to skip its own upload.
+func withoutUploadSkipHeaderOnRetry(next retryablehttp.PrepareRetry) retryablehttp.PrepareRetry {
+	return func(req *http.Request) error {
+		if req.Header.Get(uploadSkipHeader) != "" {
+			req.Header = req.Header.Clone() // retries share the header map with the previous attempt
+			req.Header.Del(uploadSkipHeader)
+		}
+		if next != nil {
+			return next(req)
+		}
+
+		return nil
+	}
+}
+
+// decodeUploadSkipped turns a 200 response into an UploadSkippedError; any other 200 body is an error.
+func decodeUploadSkipped(resp *http.Response) error {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	var skipped uploadSkippedResponse
+	if err := json.Unmarshal(body, &skipped); err != nil || !skipped.Skipped {
+		return fmt.Errorf("unexpected HTTP %d response: %s", resp.StatusCode, body)
+	}
+
+	return UploadSkippedError{Reason: skipped.Reason, ExistingID: skipped.ExistingID}
+}
+
 func unwrapError(resp *http.Response) error {
-	errorResp, err := ioutil.ReadAll(resp.Body)
+	errorResp, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
